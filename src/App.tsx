@@ -15,7 +15,7 @@ export default function App() {
   const [activeTool, setActiveTool] = useState<Tool>('remove-color');
   const [zoom, setZoom] = useState(1);
   const [mergeThreshold, setMergeThreshold] = useState(10);
-  const [colorTolerance, setColorTolerance] = useState(15);
+  const [colorTolerance, setColorTolerance] = useState(30);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sliceMode, setSliceMode] = useState<'auto' | 'grid'>('auto');
   const [gridRows, setGridRows] = useState(3);
@@ -58,7 +58,7 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // Process image when colors to remove change
+  // Process image when colors to remove change or tolerance changes
   useEffect(() => {
     if (!originalImageData) return;
     
@@ -67,9 +67,11 @@ export default function App() {
       return;
     }
 
-    const newImageData = removeColors(originalImageData, colorsToRemove);
+    // Apply the current global color tolerance to all selected colors
+    const colorsWithTolerance = colorsToRemove.map(c => ({ ...c, tolerance: colorTolerance }));
+    const newImageData = removeColors(originalImageData, colorsWithTolerance);
     setProcessedImageData(newImageData);
-  }, [colorsToRemove, originalImageData]);
+  }, [colorsToRemove, originalImageData, colorTolerance]);
 
   // Draw canvas
   useEffect(() => {
@@ -112,7 +114,11 @@ export default function App() {
     const a = originalImageData.data[idx + 3];
 
     if (a > 0) {
-      setColorsToRemove((prev) => [...prev, { r, g, b, tolerance: colorTolerance }]);
+      setColorsToRemove((prev) => {
+        const exists = prev.some(c => Math.abs(c.r - r) < 5 && Math.abs(c.g - g) < 5 && Math.abs(c.b - b) < 5);
+        if (exists) return prev;
+        return [...prev, { r, g, b, tolerance: colorTolerance }];
+      });
     }
   };
 
@@ -241,7 +247,7 @@ export default function App() {
                     <label className="block text-xs font-medium text-gray-700 mb-1">Color Tolerance: {colorTolerance}</label>
                     <input 
                       type="range" 
-                      min="0" max="100" 
+                      min="0" max="255" 
                       value={colorTolerance} 
                       onChange={(e) => setColorTolerance(Number(e.target.value))}
                       className="w-full"
